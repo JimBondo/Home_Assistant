@@ -607,7 +607,7 @@ function renderTempProjection(dk) {
       <div class="card card-sm"><div class="label">Daily high</div><div class="value" style="color:var(--coral)">${mxT!=null?Math.round(mxT)+'°F':'-'}</div><div class="sub">Avg peak in window</div></div>
       <div class="card card-sm"><div class="label">Daily low</div><div class="value" style="color:var(--accent)">${mnT!=null?Math.round(mnT)+'°F':'-'}</div><div class="sub">Avg low in window</div></div>
     </div>
-    <div class="section-title">Average daily pattern (power vs temp from window)</div>
+    <div class="section-title">Average daily pattern (power vs temp from thermostat)</div>
     <div class="card"><div class="chart-wrap chart-wrap-tall"><canvas id="tempDayChart"></canvas></div></div>`;
   destroyChart('tempDayChart');
   if (tempsWithData.length === 0) return;
