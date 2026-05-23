@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy Dashboard — Rainforest EMU-2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f6f8;--card:#ffffff;--border:#e2e5e9;--text:#1a1d21;--text2:#5f6673;--text3:#9da3ae;
+  --accent:#2563eb;--green:#16a34a;--amber:#ca8a04;--red:#dc2626;--purple:#7c3aed;
+  --teal:#0d9488;--coral:#ea580c;--projection:#7c3aed;--radius:10px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);padding:16px;max-width:1200px;margin:0 auto}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.header h1{font-size:22px;font-weight:600}
+.header .rates{font-size:12px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap}
+.header .rates span{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:#fff}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.tab{padding:10px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.day-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.day-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:#fff;transition:all .15s}
+.day-tab:hover{border-color:var(--text3);color:var(--text)}
+.day-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.day-tab.projection{border-color:var(--projection);color:var(--projection);background:rgba(124,58,237,0.04);font-weight:600}
+.day-tab.projection.active{background:var(--projection);color:#fff;border-color:var(--projection)}
+.day-tab.projection::before{content:'📈 ';font-size:10px}
+.day-tab-separator{width:1px;height:18px;background:var(--border);margin:0 4px}
+.grid{display:grid;gap:14px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:1fr 1fr 1fr}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card-sm{padding:12px 14px}
+.card .label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.card .value{font-size:24px;font-weight:600}
+.card .sub{font-size:12px;color:var(--text2);margin-top:2px}
+.chart-wrap{position:relative;height:280px}
+.chart-wrap-tall{height:340px}
+.section-title{font-size:15px;font-weight:600;margin:20px 0 10px;color:var(--text)}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-mp{background:rgba(220,38,38,.1);color:var(--red)}
+.badge-sop{background:rgba(13,148,136,.1);color:var(--teal)}
+.badge-op{background:rgba(37,99,235,.1);color:var(--accent)}
+.badge-onpeak{background:rgba(220,38,38,.15);color:var(--red)}
+.badge-midpeak{background:rgba(202,138,4,.15);color:var(--amber)}
+.badge-offpeak{background:rgba(13,148,136,.1);color:var(--teal)}
+.view-panel{display:none}
+.view-panel.active{display:block}
+.tou-legend{display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:8px;flex-wrap:wrap}
+.tou-legend span{display:flex;align-items:center;gap:4px}
+.tou-legend .dot{width:8px;height:8px;border-radius:2px}
+.hvac-banner{padding:10px 14px;border-radius:var(--radius);background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.15);font-size:12px;color:var(--accent);margin-bottom:14px}
+.pump-banner{padding:10px 14px;border-radius:var(--radius);background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.15);font-size:12px;color:var(--purple);margin-bottom:14px}
+.projection-banner{padding:12px 16px;border-radius:var(--radius);background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);font-size:12px;color:var(--purple);margin-bottom:14px;line-height:1.5}
+.projection-banner strong{color:var(--purple)}
+.sample-warning{padding:8px 12px;border-radius:6px;background:rgba(202,138,4,.08);border:1px solid rgba(202,138,4,.2);font-size:11px;color:var(--amber);margin-bottom:10px}
+.savings-card{padding:16px;border-radius:var(--radius);background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);margin-top:14px}
+.savings-card .savings-title{font-size:14px;font-weight:600;color:var(--green);margin-bottom:6px}
+.savings-card .savings-body{font-size:13px;color:var(--text2);line-height:1.5}
+table.pump-table{width:100%;border-collapse:collapse;font-size:13px}
+table.pump-table th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:var(--text2);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+table.pump-table td{padding:6px 10px;border-bottom:1px solid var(--border)}
+table.pump-table tr:last-child td{border-bottom:none}
+.assumption-box{padding:12px 14px;border-radius:var(--radius);background:rgba(0,0,0,.025);border:1px dashed var(--border);font-size:12px;color:var(--text2);margin:10px 0}
+.assumption-box strong{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Energy Dashboard</h1>
+  <div class="rates">
+    <span style="border-color:#0d9488">🟢 Super Off-Peak $0.236</span>
+    <span style="border-color:#2563eb">🔵 Off-Peak $0.275</span>
+    <span style="border-color:#dc2626">🔴 Mid-Peak $0.411</span>
+  </div>
+</div>
+
+<div class="tabs" id="mainTabs">
+  <div class="tab active" data-view="overview">Overview</div>
+  <div class="tab" data-view="power">Power demand</div>
+  <div class="tab" data-view="cost">Cost breakdown</div>
+  <div class="tab" data-view="temperature">Temperature</div>
+  <div class="tab" data-view="pump">Pool pump</div>
+</div>
+
+<div class="view-panel active" id="view-overview">
+  <div class="grid grid-4" id="overview-summary" style="margin-bottom:20px"></div>
+  <div class="section-title">Daily cost comparison</div>
+  <div class="card"><div class="chart-wrap"><canvas id="overviewCostChart"></canvas></div></div>
+  <div class="section-title">Daily kWh by TOU period</div>
+  <div class="card"><div class="chart-wrap"><canvas id="overviewTouChart"></canvas></div></div>
+</div>
+
+<div class="view-panel" id="view-power"><div class="day-tabs" id="powerDayTabs"></div><div id="powerContent"></div></div>
+<div class="view-panel" id="view-cost"><div class="day-tabs" id="costDayTabs"></div><div id="costContent"></div></div>
+<div class="view-panel" id="view-temperature">
+  <div class="hvac-banner">ℹ️ Both thermostats (upstairs &amp; downstairs) were <strong>OFF</strong> for the entire 5-day period.</div>
+  <div class="day-tabs" id="tempDayTabs"></div><div id="tempContent"></div>
+</div>
+<div class="view-panel" id="view-pump"><div class="day-tabs" id="pumpDayTabs"></div><div id="pumpContent"></div></div>
+
+<script>
+Chart.register(ChartDataLabels);
+const DAYS = {"2026-05-19": [{"ts": 1779174000000, "mean": 1.621, "min": 1.417, "max": 1.97, "hour": 0, "period": "off_peak", "rate": 0.275, "kwh_est": 1.621, "cost_est": 0.446, "label": "12am", "temp": 75, "pump_high": false}, {"ts": 1779177600000, "mean": 1.473, "min": 1.285, "max": 1.695, "hour": 1, "period": "off_peak", "rate": 0.275, "kwh_est": 1.473, "cost_est": 0.405, "label": "1am", "temp": 74, "pump_high": false}, {"ts": 1779181200000, "mean": 1.376, "min": 1.193, "max": 1.618, "hour": 2, "period": "off_peak", "rate": 0.275, "kwh_est": 1.376, "cost_est": 0.378, "label": "2am", "temp": 73, "pump_high": false}, {"ts": 1779184800000, "mean": 1.411, "min": 1.256, "max": 1.578, "hour": 3, "period": "off_peak", "rate": 0.275, "kwh_est": 1.411, "cost_est": 0.388, "label": "3am", "temp": 72, "pump_high": false}, {"ts": 1779188400000, "mean": 1.395, "min": 1.285, "max": 1.522, "hour": 4, "period": "off_peak", "rate": 0.275, "kwh_est": 1.395, "cost_est": 0.384, "label": "4am", "temp": 71, "pump_high": false}, {"ts": 1779192000000, "mean": 1.416, "min": 1.312, "max": 2.364, "hour": 5, "period": "off_peak", "rate": 0.275, "kwh_est": 1.416, "cost_est": 0.389, "label": "5am", "temp": 72, "pump_high": false}, {"ts": 1779195600000, "mean": 2.036, "min": 1.861, "max": 2.344, "hour": 6, "period": "off_peak", "rate": 0.275, "kwh_est": 2.036, "cost_est": 0.56, "label": "6am", "temp": 72, "pump_high": false}, {"ts": 1779199200000, "mean": 2.293, "min": 2.106, "max": 2.454, "hour": 7, "period": "off_peak", "rate": 0.275, "kwh_est": 2.293, "cost_est": 0.631, "label": "7am", "temp": 72, "pump_high": false}, {"ts": 1779202800000, "mean": 2.371, "min": 2.211, "max": 3.605, "hour": 8, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.371, "cost_est": 0.56, "label": "8am", "temp": 72, "pump_high": false}, {"ts": 1779206400000, "mean": 2.315, "min": 1.868, "max": 2.485, "hour": 9, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.315, "cost_est": 0.546, "label": "9am", "temp": 72, "pump_high": false}, {"ts": 1779210000000, "mean": 3.986, "min": 1.876, "max": 7.424, "hour": 10, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.986, "cost_est": 0.941, "label": "10am", "temp": 74, "pump_high": true}, {"ts": 1779213600000, "mean": 1.961, "min": 1.726, "max": 4.759, "hour": 11, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.961, "cost_est": 0.463, "label": "11am", "temp": 75, "pump_high": false}, {"ts": 1779217200000, "mean": 1.852, "min": 1.639, "max": 2.039, "hour": 12, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.852, "cost_est": 0.437, "label": "12pm", "temp": 76, "pump_high": false}, {"ts": 1779220800000, "mean": 1.748, "min": 1.46, "max": 1.887, "hour": 13, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.748, "cost_est": 0.413, "label": "1pm", "temp": 76, "pump_high": false}, {"ts": 1779224400000, "mean": 1.968, "min": 1.46, "max": 2.752, "hour": 14, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.968, "cost_est": 0.464, "label": "2pm", "temp": 77, "pump_high": false}, {"ts": 1779228000000, "mean": 1.957, "min": 1.475, "max": 2.842, "hour": 15, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.957, "cost_est": 0.462, "label": "3pm", "temp": 78, "pump_high": false}, {"ts": 1779231600000, "mean": 2.217, "min": 1.4, "max": 5.262, "hour": 16, "period": "mid_peak", "rate": 0.411, "kwh_est": 2.217, "cost_est": 0.911, "label": "4pm", "temp": 78, "pump_high": false}, {"ts": 1779235200000, "mean": 3.367, "min": 1.588, "max": 5.247, "hour": 17, "period": "mid_peak", "rate": 0.411, "kwh_est": 3.367, "cost_est": 1.384, "label": "5pm", "temp": 78, "pump_high": true}, {"ts": 1779238800000, "mean": 1.535, "min": 1.36, "max": 1.686, "hour": 18, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.535, "cost_est": 0.631, "label": "6pm", "temp": 78, "pump_high": false}, {"ts": 1779242400000, "mean": 1.438, "min": 1.31, "max": 1.634, "hour": 19, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.438, "cost_est": 0.591, "label": "7pm", "temp": 77, "pump_high": false}, {"ts": 1779246000000, "mean": 1.857, "min": 1.461, "max": 1.989, "hour": 20, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.857, "cost_est": 0.763, "label": "8pm", "temp": 77, "pump_high": false}, {"ts": 1779249600000, "mean": 1.934, "min": 1.713, "max": 3.89, "hour": 21, "period": "off_peak", "rate": 0.275, "kwh_est": 1.934, "cost_est": 0.532, "label": "9pm", "temp": 76, "pump_high": false}, {"ts": 1779253200000, "mean": 1.835, "min": 1.659, "max": 2.024, "hour": 22, "period": "off_peak", "rate": 0.275, "kwh_est": 1.835, "cost_est": 0.505, "label": "10pm", "temp": 75, "pump_high": false}, {"ts": 1779256800000, "mean": 1.507, "min": 1.204, "max": 1.844, "hour": 23, "period": "off_peak", "rate": 0.275, "kwh_est": 1.507, "cost_est": 0.414, "label": "11pm", "temp": 74, "pump_high": false}], "2026-05-20": [{"ts": 1779260400000, "mean": 1.55, "min": 1.35, "max": 1.816, "hour": 0, "period": "off_peak", "rate": 0.275, "kwh_est": 1.55, "cost_est": 0.426, "label": "12am", "temp": 74, "pump_high": false}, {"ts": 1779264000000, "mean": 1.482, "min": 1.412, "max": 1.588, "hour": 1, "period": "off_peak", "rate": 0.275, "kwh_est": 1.482, "cost_est": 0.408, "label": "1am", "temp": 73, "pump_high": false}, {"ts": 1779267600000, "mean": 1.522, "min": 1.427, "max": 1.638, "hour": 2, "period": "off_peak", "rate": 0.275, "kwh_est": 1.522, "cost_est": 0.419, "label": "2am", "temp": 73, "pump_high": false}, {"ts": 1779271200000, "mean": 1.617, "min": 1.298, "max": 2.083, "hour": 3, "period": "off_peak", "rate": 0.275, "kwh_est": 1.617, "cost_est": 0.445, "label": "3am", "temp": 72, "pump_high": false}, {"ts": 1779274800000, "mean": 1.47, "min": 1.4, "max": 1.563, "hour": 4, "period": "off_peak", "rate": 0.275, "kwh_est": 1.47, "cost_est": 0.404, "label": "4am", "temp": 72, "pump_high": false}, {"ts": 1779278400000, "mean": 1.515, "min": 1.405, "max": 2.697, "hour": 5, "period": "off_peak", "rate": 0.275, "kwh_est": 1.515, "cost_est": 0.417, "label": "5am", "temp": 72, "pump_high": false}, {"ts": 1779282000000, "mean": 2.08, "min": 1.971, "max": 2.461, "hour": 6, "period": "off_peak", "rate": 0.275, "kwh_est": 2.08, "cost_est": 0.572, "label": "6am", "temp": 74, "pump_high": false}, {"ts": 1779285600000, "mean": 3.25, "min": 1.973, "max": 5.93, "hour": 7, "period": "off_peak", "rate": 0.275, "kwh_est": 3.25, "cost_est": 0.894, "label": "7am", "temp": 75, "pump_high": true}, {"ts": 1779289200000, "mean": 4.48, "min": 2.508, "max": 7.638, "hour": 8, "period": "super_off_peak", "rate": 0.236, "kwh_est": 4.48, "cost_est": 1.057, "label": "8am", "temp": 76, "pump_high": true}, {"ts": 1779292800000, "mean": 3.735, "min": 2.389, "max": 7.496, "hour": 9, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.735, "cost_est": 0.881, "label": "9am", "temp": 77, "pump_high": true}, {"ts": 1779296400000, "mean": 1.988, "min": 1.575, "max": 5.579, "hour": 10, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.988, "cost_est": 0.469, "label": "10am", "temp": 78, "pump_high": false}, {"ts": 1779300000000, "mean": 4.248, "min": 1.778, "max": 7.258, "hour": 11, "period": "super_off_peak", "rate": 0.236, "kwh_est": 4.248, "cost_est": 1.003, "label": "11am", "temp": 78, "pump_high": true}, {"ts": 1779303600000, "mean": 3.021, "min": 1.889, "max": 5.532, "hour": 12, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.021, "cost_est": 0.713, "label": "12pm", "temp": 78, "pump_high": true}, {"ts": 1779307200000, "mean": 1.867, "min": 1.624, "max": 2.402, "hour": 13, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.867, "cost_est": 0.441, "label": "1pm", "temp": 78, "pump_high": false}, {"ts": 1779310800000, "mean": 4.552, "min": 1.692, "max": 6.866, "hour": 14, "period": "super_off_peak", "rate": 0.236, "kwh_est": 4.552, "cost_est": 1.074, "label": "2pm", "temp": 79, "pump_high": true}, {"ts": 1779314400000, "mean": 3.672, "min": 1.852, "max": 6.866, "hour": 15, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.672, "cost_est": 0.867, "label": "3pm", "temp": 80, "pump_high": true}, {"ts": 1779318000000, "mean": 1.893, "min": 1.533, "max": 2.606, "hour": 16, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.893, "cost_est": 0.778, "label": "4pm", "temp": 79, "pump_high": false}, {"ts": 1779321600000, "mean": 1.671, "min": 1.449, "max": 2.266, "hour": 17, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.671, "cost_est": 0.687, "label": "5pm", "temp": 79, "pump_high": false}, {"ts": 1779325200000, "mean": 1.881, "min": 1.497, "max": 2.914, "hour": 18, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.881, "cost_est": 0.773, "label": "6pm", "temp": 78, "pump_high": false}, {"ts": 1779328800000, "mean": 3.049, "min": 1.497, "max": 6.297, "hour": 19, "period": "mid_peak", "rate": 0.411, "kwh_est": 3.049, "cost_est": 1.253, "label": "7pm", "temp": 78, "pump_high": true}, {"ts": 1779332400000, "mean": 2.096, "min": 1.955, "max": 2.534, "hour": 20, "period": "mid_peak", "rate": 0.411, "kwh_est": 2.096, "cost_est": 0.861, "label": "8pm", "temp": 77, "pump_high": false}, {"ts": 1779336000000, "mean": 2.062, "min": 1.697, "max": 2.398, "hour": 21, "period": "off_peak", "rate": 0.275, "kwh_est": 2.062, "cost_est": 0.567, "label": "9pm", "temp": 77, "pump_high": false}, {"ts": 1779339600000, "mean": 2.095, "min": 1.8, "max": 2.619, "hour": 22, "period": "off_peak", "rate": 0.275, "kwh_est": 2.095, "cost_est": 0.576, "label": "10pm", "temp": 76, "pump_high": false}, {"ts": 1779343200000, "mean": 1.918, "min": 1.444, "max": 3.221, "hour": 23, "period": "off_peak", "rate": 0.275, "kwh_est": 1.918, "cost_est": 0.527, "label": "11pm", "temp": 76, "pump_high": false}], "2026-05-21": [{"ts": 1779346800000, "mean": 1.719, "min": 1.376, "max": 2.242, "hour": 0, "period": "off_peak", "rate": 0.275, "kwh_est": 1.719, "cost_est": 0.473, "label": "12am", "temp": 75, "pump_high": false}, {"ts": 1779350400000, "mean": 2.15, "min": 1.358, "max": 3.437, "hour": 1, "period": "off_peak", "rate": 0.275, "kwh_est": 2.15, "cost_est": 0.591, "label": "1am", "temp": 74, "pump_high": false}, {"ts": 1779354000000, "mean": 1.828, "min": 1.292, "max": 2.736, "hour": 2, "period": "off_peak", "rate": 0.275, "kwh_est": 1.828, "cost_est": 0.503, "label": "2am", "temp": 73, "pump_high": false}, {"ts": 1779357600000, "mean": 1.777, "min": 1.276, "max": 2.513, "hour": 3, "period": "off_peak", "rate": 0.275, "kwh_est": 1.777, "cost_est": 0.489, "label": "3am", "temp": 73, "pump_high": false}, {"ts": 1779361200000, "mean": 1.387, "min": 1.218, "max": 1.983, "hour": 4, "period": "off_peak", "rate": 0.275, "kwh_est": 1.387, "cost_est": 0.381, "label": "4am", "temp": 74, "pump_high": false}, {"ts": 1779364800000, "mean": 1.413, "min": 1.26, "max": 2.343, "hour": 5, "period": "off_peak", "rate": 0.275, "kwh_est": 1.413, "cost_est": 0.389, "label": "5am", "temp": 75, "pump_high": false}, {"ts": 1779368400000, "mean": 1.95, "min": 1.797, "max": 2.409, "hour": 6, "period": "off_peak", "rate": 0.275, "kwh_est": 1.95, "cost_est": 0.536, "label": "6am", "temp": 76, "pump_high": false}, {"ts": 1779372000000, "mean": 2.083, "min": 1.863, "max": 2.554, "hour": 7, "period": "off_peak", "rate": 0.275, "kwh_est": 2.083, "cost_est": 0.573, "label": "7am", "temp": 77, "pump_high": false}, {"ts": 1779375600000, "mean": 3.377, "min": 1.825, "max": 6.896, "hour": 8, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.377, "cost_est": 0.797, "label": "8am", "temp": 78, "pump_high": true}, {"ts": 1779379200000, "mean": 2.502, "min": 1.983, "max": 3.127, "hour": 9, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.502, "cost_est": 0.59, "label": "9am", "temp": 79, "pump_high": false}, {"ts": 1779382800000, "mean": 3.816, "min": 1.832, "max": 6.045, "hour": 10, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.816, "cost_est": 0.901, "label": "10am", "temp": 80, "pump_high": true}, {"ts": 1779386400000, "mean": 1.923, "min": 1.665, "max": 2.442, "hour": 11, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.923, "cost_est": 0.454, "label": "11am", "temp": 81, "pump_high": false}, {"ts": 1779390000000, "mean": 2.722, "min": 1.571, "max": 5.408, "hour": 12, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.722, "cost_est": 0.642, "label": "12pm", "temp": 82, "pump_high": true}, {"ts": 1779393600000, "mean": 3.051, "min": 1.294, "max": 4.733, "hour": 13, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.051, "cost_est": 0.72, "label": "1pm", "temp": 83, "pump_high": true}, {"ts": 1779397200000, "mean": 1.237, "min": 1.152, "max": 1.699, "hour": 14, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.237, "cost_est": 0.292, "label": "2pm", "temp": 82, "pump_high": false}, {"ts": 1779400800000, "mean": 1.213, "min": 1.152, "max": 1.687, "hour": 15, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.213, "cost_est": 0.286, "label": "3pm", "temp": 81, "pump_high": false}, {"ts": 1779404400000, "mean": 3.048, "min": 1.403, "max": 5.281, "hour": 16, "period": "mid_peak", "rate": 0.411, "kwh_est": 3.048, "cost_est": 1.253, "label": "4pm", "temp": 81, "pump_high": true}, {"ts": 1779408000000, "mean": 2.831, "min": 1.231, "max": 5.079, "hour": 17, "period": "mid_peak", "rate": 0.411, "kwh_est": 2.831, "cost_est": 1.164, "label": "5pm", "temp": 80, "pump_high": true}, {"ts": 1779411600000, "mean": 3.364, "min": 1.279, "max": 5.302, "hour": 18, "period": "mid_peak", "rate": 0.411, "kwh_est": 3.364, "cost_est": 1.383, "label": "6pm", "temp": 80, "pump_high": true}, {"ts": 1779415200000, "mean": 1.511, "min": 1.375, "max": 1.92, "hour": 19, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.511, "cost_est": 0.621, "label": "7pm", "temp": 79, "pump_high": false}, {"ts": 1779418800000, "mean": 1.58, "min": 1.466, "max": 2.058, "hour": 20, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.58, "cost_est": 0.649, "label": "8pm", "temp": 78, "pump_high": false}, {"ts": 1779422400000, "mean": 1.65, "min": 1.176, "max": 3.172, "hour": 21, "period": "off_peak", "rate": 0.275, "kwh_est": 1.65, "cost_est": 0.454, "label": "9pm", "temp": 77, "pump_high": false}, {"ts": 1779426000000, "mean": 1.908, "min": 1.176, "max": 3.776, "hour": 22, "period": "off_peak", "rate": 0.275, "kwh_est": 1.908, "cost_est": 0.525, "label": "10pm", "temp": 76, "pump_high": false}, {"ts": 1779429600000, "mean": 1.823, "min": 1.121, "max": 2.635, "hour": 23, "period": "off_peak", "rate": 0.275, "kwh_est": 1.823, "cost_est": 0.501, "label": "11pm", "temp": 76, "pump_high": false}], "2026-05-22": [{"ts": 1779433200000, "mean": 1.428, "min": 1.202, "max": 2.071, "hour": 0, "period": "off_peak", "rate": 0.275, "kwh_est": 1.428, "cost_est": 0.393, "label": "12am", "temp": 75, "pump_high": false}, {"ts": 1779436800000, "mean": 1.394, "min": 1.257, "max": 1.846, "hour": 1, "period": "off_peak", "rate": 0.275, "kwh_est": 1.394, "cost_est": 0.383, "label": "1am", "temp": 74, "pump_high": false}, {"ts": 1779440400000, "mean": 1.301, "min": 1.192, "max": 1.787, "hour": 2, "period": "off_peak", "rate": 0.275, "kwh_est": 1.301, "cost_est": 0.358, "label": "2am", "temp": 74, "pump_high": false}, {"ts": 1779444000000, "mean": 1.252, "min": 1.166, "max": 1.701, "hour": 3, "period": "off_peak", "rate": 0.275, "kwh_est": 1.252, "cost_est": 0.344, "label": "3am", "temp": 76, "pump_high": false}, {"ts": 1779447600000, "mean": 1.301, "min": 1.175, "max": 1.844, "hour": 4, "period": "off_peak", "rate": 0.275, "kwh_est": 1.301, "cost_est": 0.358, "label": "4am", "temp": 76, "pump_high": false}, {"ts": 1779451200000, "mean": 1.288, "min": 1.036, "max": 2.211, "hour": 5, "period": "off_peak", "rate": 0.275, "kwh_est": 1.288, "cost_est": 0.354, "label": "5am", "temp": 77, "pump_high": false}, {"ts": 1779454800000, "mean": 1.947, "min": 1.7, "max": 2.612, "hour": 6, "period": "off_peak", "rate": 0.275, "kwh_est": 1.947, "cost_est": 0.535, "label": "6am", "temp": 78, "pump_high": false}, {"ts": 1779458400000, "mean": 2.204, "min": 1.989, "max": 2.955, "hour": 7, "period": "off_peak", "rate": 0.275, "kwh_est": 2.204, "cost_est": 0.606, "label": "7am", "temp": 78, "pump_high": false}, {"ts": 1779462000000, "mean": 2.089, "min": 1.951, "max": 2.599, "hour": 8, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.089, "cost_est": 0.493, "label": "8am", "temp": 79, "pump_high": false}, {"ts": 1779465600000, "mean": 4.583, "min": 1.993, "max": 7.259, "hour": 9, "period": "super_off_peak", "rate": 0.236, "kwh_est": 4.583, "cost_est": 1.082, "label": "9am", "temp": 80, "pump_high": true}, {"ts": 1779469200000, "mean": 2.684, "min": 1.904, "max": 3.425, "hour": 10, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.684, "cost_est": 0.633, "label": "10am", "temp": 80, "pump_high": false}, {"ts": 1779472800000, "mean": 3.197, "min": 2.399, "max": 4.683, "hour": 11, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.197, "cost_est": 0.754, "label": "11am", "temp": 81, "pump_high": true}, {"ts": 1779476400000, "mean": 3.273, "min": 2.71, "max": 4.532, "hour": 12, "period": "super_off_peak", "rate": 0.236, "kwh_est": 3.273, "cost_est": 0.772, "label": "12pm", "temp": 82, "pump_high": true}, {"ts": 1779480000000, "mean": 2.906, "min": 2.626, "max": 3.792, "hour": 13, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.906, "cost_est": 0.686, "label": "1pm", "temp": 82, "pump_high": false}, {"ts": 1779483600000, "mean": 1.931, "min": 1.501, "max": 3.408, "hour": 14, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.931, "cost_est": 0.456, "label": "2pm", "temp": 81, "pump_high": false}, {"ts": 1779487200000, "mean": 4.465, "min": 1.628, "max": 5.329, "hour": 15, "period": "super_off_peak", "rate": 0.236, "kwh_est": 4.465, "cost_est": 1.054, "label": "3pm", "temp": 81, "pump_high": true}, {"ts": 1779490800000, "mean": 1.497, "min": 1.2, "max": 1.959, "hour": 16, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.497, "cost_est": 0.615, "label": "4pm", "temp": 80, "pump_high": false}, {"ts": 1779494400000, "mean": 1.361, "min": 1.187, "max": 1.878, "hour": 17, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.361, "cost_est": 0.559, "label": "5pm", "temp": 80, "pump_high": false}, {"ts": 1779498000000, "mean": 1.453, "min": 1.246, "max": 1.793, "hour": 18, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.453, "cost_est": 0.597, "label": "6pm", "temp": 79, "pump_high": false}, {"ts": 1779501600000, "mean": 1.288, "min": 1.072, "max": 1.633, "hour": 19, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.288, "cost_est": 0.529, "label": "7pm", "temp": 79, "pump_high": false}, {"ts": 1779505200000, "mean": 1.494, "min": 1.262, "max": 1.772, "hour": 20, "period": "mid_peak", "rate": 0.411, "kwh_est": 1.494, "cost_est": 0.614, "label": "8pm", "temp": 78, "pump_high": false}, {"ts": 1779508800000, "mean": 1.489, "min": 1.34, "max": 2.244, "hour": 21, "period": "off_peak", "rate": 0.275, "kwh_est": 1.489, "cost_est": 0.409, "label": "9pm", "temp": 77, "pump_high": false}, {"ts": 1779512400000, "mean": 1.489, "min": 1.347, "max": 2.095, "hour": 22, "period": "off_peak", "rate": 0.275, "kwh_est": 1.489, "cost_est": 0.409, "label": "10pm", "temp": 76, "pump_high": false}, {"ts": 1779516000000, "mean": 1.289, "min": 0.91, "max": 2.124, "hour": 23, "period": "off_peak", "rate": 0.275, "kwh_est": 1.289, "cost_est": 0.354, "label": "11pm", "temp": 75, "pump_high": false}], "2026-05-23": [{"ts": 1779519600000, "mean": 1.422, "min": 1.168, "max": 1.882, "hour": 0, "period": "off_peak", "rate": 0.275, "kwh_est": 1.422, "cost_est": 0.391, "label": "12am", "temp": 75, "pump_high": false}, {"ts": 1779523200000, "mean": 1.486, "min": 1.249, "max": 2.082, "hour": 1, "period": "off_peak", "rate": 0.275, "kwh_est": 1.486, "cost_est": 0.409, "label": "1am", "temp": 76, "pump_high": false}, {"ts": 1779526800000, "mean": 1.43, "min": 1.208, "max": 1.882, "hour": 2, "period": "off_peak", "rate": 0.275, "kwh_est": 1.43, "cost_est": 0.393, "label": "2am", "temp": 76, "pump_high": false}, {"ts": 1779530400000, "mean": 1.432, "min": 1.172, "max": 1.989, "hour": 3, "period": "off_peak", "rate": 0.275, "kwh_est": 1.432, "cost_est": 0.394, "label": "3am", "temp": 76, "pump_high": false}, {"ts": 1779534000000, "mean": 1.348, "min": 1.137, "max": 1.721, "hour": 4, "period": "off_peak", "rate": 0.275, "kwh_est": 1.348, "cost_est": 0.371, "label": "4am", "temp": 76, "pump_high": false}, {"ts": 1779537600000, "mean": 1.138, "min": 0.942, "max": 2.101, "hour": 5, "period": "off_peak", "rate": 0.275, "kwh_est": 1.138, "cost_est": 0.313, "label": "5am", "temp": 75, "pump_high": false}, {"ts": 1779541200000, "mean": 1.707, "min": 1.554, "max": 2.075, "hour": 6, "period": "off_peak", "rate": 0.275, "kwh_est": 1.707, "cost_est": 0.469, "label": "6am", "temp": 75, "pump_high": false}, {"ts": 1779544800000, "mean": 1.936, "min": 1.631, "max": 2.539, "hour": 7, "period": "off_peak", "rate": 0.275, "kwh_est": 1.936, "cost_est": 0.532, "label": "7am", "temp": 75, "pump_high": false}, {"ts": 1779548400000, "mean": 2.032, "min": 1.845, "max": 2.573, "hour": 8, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.032, "cost_est": 0.48, "label": "8am", "temp": 76, "pump_high": false}, {"ts": 1779552000000, "mean": 2.995, "min": 1.612, "max": 5.107, "hour": 9, "period": "super_off_peak", "rate": 0.236, "kwh_est": 2.995, "cost_est": 0.707, "label": "9am", "temp": 76, "pump_high": true}, {"ts": 1779555600000, "mean": 1.585, "min": 1.359, "max": 2.007, "hour": 10, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.585, "cost_est": 0.374, "label": "10am", "temp": 77, "pump_high": false}, {"ts": 1779559200000, "mean": 1.712, "min": 1.439, "max": 2.53, "hour": 11, "period": "super_off_peak", "rate": 0.236, "kwh_est": 1.712, "cost_est": 0.404, "label": "11am", "temp": 77, "pump_high": false}]};
+const SUMMARIES = {"2026-05-19": {"total_kwh": 46.87, "total_cost": 14.39, "peak_kw": 7.42, "min_kw": 1.19, "by_period": {"mid_peak": {"kwh": 10.41, "cost": 4.28, "hours": 5}, "super_off_peak": {"kwh": 18.16, "cost": 4.29, "hours": 8}, "off_peak": {"kwh": 18.3, "cost": 5.03, "hours": 11}}, "avg_temp": 74.8, "temp_count": 24, "hours": 24, "pump_events": 2}, "2026-05-20": {"total_kwh": 58.71, "total_cost": 17.31, "peak_kw": 7.64, "min_kw": 1.3, "by_period": {"mid_peak": {"kwh": 10.59, "cost": 4.35, "hours": 5}, "super_off_peak": {"kwh": 27.56, "cost": 6.5, "hours": 8}, "off_peak": {"kwh": 20.56, "cost": 5.65, "hours": 11}}, "avg_temp": 76.2, "temp_count": 24, "hours": 24, "pump_events": 8}, "2026-05-21": {"total_kwh": 51.86, "total_cost": 15.96, "peak_kw": 6.9, "min_kw": 1.12, "by_period": {"mid_peak": {"kwh": 12.33, "cost": 5.07, "hours": 5}, "super_off_peak": {"kwh": 19.84, "cost": 4.68, "hours": 8}, "off_peak": {"kwh": 19.69, "cost": 5.42, "hours": 11}}, "avg_temp": 77.9, "temp_count": 24, "hours": 24, "pump_events": 7}, "2026-05-22": {"total_kwh": 48.6, "total_cost": 14.14, "peak_kw": 7.26, "min_kw": 0.91, "by_period": {"mid_peak": {"kwh": 7.09, "cost": 2.91, "hours": 5}, "super_off_peak": {"kwh": 25.13, "cost": 5.93, "hours": 8}, "off_peak": {"kwh": 16.38, "cost": 4.5, "hours": 11}}, "avg_temp": 78.2, "temp_count": 24, "hours": 24, "pump_events": 4}, "2026-05-23": {"total_kwh": 20.22, "total_cost": 6.03, "peak_kw": 5.11, "min_kw": 0.94, "by_period": {"mid_peak": {"kwh": 0, "cost": 0, "hours": 0}, "super_off_peak": {"kwh": 8.32, "cost": 1.96, "hours": 4}, "off_peak": {"kwh": 11.9, "cost": 3.27, "hours": 8}}, "avg_temp": 75.8, "temp_count": 12, "hours": 12, "pump_events": 1}};
+const DAY_KEYS = ["2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-23", "next_week", "next_month"];
+const DAY_LABELS = {"2026-05-19": "Tue May 19", "2026-05-20": "Wed May 20", "2026-05-21": "Thu May 21", "2026-05-22": "Fri May 22", "2026-05-23": "Sat May 23", "next_week": "Next Week", "next_month": "Next Month"};
+const PROJECTION_KEYS = ['next_week', 'next_month'];
+const OBSERVED_KEYS = DAY_KEYS.filter(dk => !PROJECTION_KEYS.includes(dk));
+
+// Rate periods
+const RATES = {mid_peak:0.411, off_peak:0.275, super_off_peak:0.236};
+const SUMMER_RATES = {on_peak: 0.486, weekend_mid_peak: 0.366, off_peak: 0.246};
+const BASE_DAILY = 0.794;
+
+// Projection config
+const PROJECTION_CONFIG = {
+  next_week: { windowDays: 7, projectionDays: 7, title: 'Next Week' },
+  next_month: { windowDays: 14, projectionDays: 30, title: 'Next Month' }
+};
+
+const PERIOD_COLORS = {mid_peak:'rgba(220,38,38,0.75)', super_off_peak:'rgba(13,148,136,0.75)', off_peak:'rgba(37,99,235,0.75)'};
+const PERIOD_BG = {mid_peak:'rgba(220,38,38,0.18)', super_off_peak:'rgba(13,148,136,0.18)', off_peak:'rgba(37,99,235,0.18)'};
+const PERIOD_NAMES = {mid_peak:'Mid-peak', super_off_peak:'Super off-peak', off_peak:'Off-peak'};
+const SUMMER_COLORS = {on_peak:'rgba(220,38,38,0.75)', weekend_mid_peak:'rgba(202,138,4,0.75)', off_peak:'rgba(13,148,136,0.75)'};
+const SUMMER_BG = {on_peak:'rgba(220,38,38,0.18)', weekend_mid_peak:'rgba(202,138,4,0.18)', off_peak:'rgba(13,148,136,0.12)'};
+const SUMMER_NAMES = {on_peak:'On-peak (M-F 4-9pm)', weekend_mid_peak:'Mid-peak (Sa-Su 4-9pm)', off_peak:'Off-peak'};
+
+const GRID_COLOR = 'rgba(0,0,0,0.06)';
+const TICK_COLOR = '#5f6673';
+
+const PUMP_HIGH_KW = 1.9, PUMP_MED_KW = 0.65, PUMP_DAILY_HIGH_HRS = 1, PUMP_DAILY_MED_HRS = 5;
+
+let charts = {};
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ============== PROJECTION ENGINE ==============
+function buildProjection(projKey) {
+  const cfg = PROJECTION_CONFIG[projKey];
+  // Use most recent N observed days
+  const window = OBSERVED_KEYS.slice(-cfg.windowDays);
+  const daysUsed = window.length;
+  
+  // Aggregate hourly stats from window
+  const stats = {};
+  for (let h = 0; h < 24; h++) stats[h] = {means:[], maxes:[], mins:[], temps:[]};
+  let pumpEventCount = 0;
+  const pumpByPeriod = {mid_peak:0, off_peak:0, super_off_peak:0};
+  window.forEach(dk => {
+    DAYS[dk].forEach(h => {
+      stats[h.hour].means.push(h.mean);
+      stats[h.hour].maxes.push(h.max);
+      stats[h.hour].mins.push(h.min);
+      if (h.temp != null) stats[h.hour].temps.push(h.temp);
+      if (h.pump_high) { pumpEventCount++; pumpByPeriod[h.period]++; }
+    });
+  });
+  
+  const avgHourly = [];
+  for (let h = 0; h < 24; h++) {
+    const s = stats[h];
+    if (s.means.length > 0) {
+      avgHourly.push({
+        hour: h,
+        label: h===0?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm',
+        mean: s.means.reduce((a,b)=>a+b,0)/s.means.length,
+        max: Math.max(...s.maxes),
+        min: Math.min(...s.mins),
+        temp: s.temps.length ? s.temps.reduce((a,b)=>a+b,0)/s.temps.length : null
+      });
+    }
+  }
+  const avgDailyKwh = avgHourly.reduce((a,h)=>a+h.mean, 0);
+  
+  // Determine projection date range (starts day after last observed)
+  const lastObserved = OBSERVED_KEYS[OBSERVED_KEYS.length - 1];
+  const [y,m,d] = lastObserved.split('-').map(Number);
+  const startDate = new Date(y, m-1, d+1);
+  
+  // Count winter vs summer days in projection window
+  const seasonDays = [];
+  let winterDays = 0, summerDays = 0;
+  for (let i = 0; i < cfg.projectionDays; i++) {
+    const day = new Date(startDate);
+    day.setDate(day.getDate() + i);
+    const month = day.getMonth() + 1; // 1-12
+    const season = (month >= 6 && month <= 9) ? 'summer' : 'winter';
+    if (season === 'summer') summerDays++;
+    else winterDays++;
+    seasonDays.push({date: day, season});
+  }
+  
+  // Calculate hourly costs (summed across all projection days)
+  // For each hour-of-day, total monthly contribution = mean × (winter_days × winter_rate + summer_days × summer_rate)
+  const hourlyProjection = avgHourly.map(h => {
+    const winterRate = (h.hour >= 16 && h.hour < 21) ? RATES.mid_peak
+                     : (h.hour >= 8 && h.hour < 16) ? RATES.super_off_peak
+                     : RATES.off_peak;
+    // Summer: 4-9pm = 5/7 weekday + 2/7 weekend
+    const summerRate = (h.hour >= 16 && h.hour < 21)
+                     ? (5/7) * SUMMER_RATES.on_peak + (2/7) * SUMMER_RATES.weekend_mid_peak
+                     : SUMMER_RATES.off_peak;
+    const cost = h.mean * (winterDays * winterRate + summerDays * summerRate);
+    const winterPeriod = (h.hour >= 16 && h.hour < 21) ? 'mid_peak'
+                       : (h.hour >= 8 && h.hour < 16) ? 'super_off_peak'
+                       : 'off_peak';
+    const summerPeriod = (h.hour >= 16 && h.hour < 21) ? 'on_peak' : 'off_peak';
+    return {
+      hour: h.hour, label: h.label, mean: h.mean, max: h.max, min: h.min, temp: h.temp,
+      winterPeriod, summerPeriod, cost, winterRate, summerRate
+    };
+  });
+  
+  // Period breakdowns (totals across projection)
+  let winterByPeriod = {mid_peak:{kwh:0,cost:0}, off_peak:{kwh:0,cost:0}, super_off_peak:{kwh:0,cost:0}};
+  let summerByPeriod = {on_peak:{kwh:0,cost:0}, weekend_mid_peak:{kwh:0,cost:0}, off_peak:{kwh:0,cost:0}};
+  
+  avgHourly.forEach(h => {
+    const winterPeriod = (h.hour >= 16 && h.hour < 21) ? 'mid_peak'
+                       : (h.hour >= 8 && h.hour < 16) ? 'super_off_peak'
+                       : 'off_peak';
+    winterByPeriod[winterPeriod].kwh += h.mean * winterDays;
+    winterByPeriod[winterPeriod].cost += h.mean * winterDays * RATES[winterPeriod];
+    
+    if (h.hour >= 16 && h.hour < 21) {
+      // Summer 4-9pm: split 5/7 weekday on-peak, 2/7 weekend mid-peak
+      summerByPeriod.on_peak.kwh += h.mean * summerDays * 5/7;
+      summerByPeriod.on_peak.cost += h.mean * summerDays * 5/7 * SUMMER_RATES.on_peak;
+      summerByPeriod.weekend_mid_peak.kwh += h.mean * summerDays * 2/7;
+      summerByPeriod.weekend_mid_peak.cost += h.mean * summerDays * 2/7 * SUMMER_RATES.weekend_mid_peak;
+    } else {
+      summerByPeriod.off_peak.kwh += h.mean * summerDays;
+      summerByPeriod.off_peak.cost += h.mean * summerDays * SUMMER_RATES.off_peak;
+    }
+  });
+  
+  const energyCost = ['mid_peak','off_peak','super_off_peak'].reduce((a,p)=>a+winterByPeriod[p].cost, 0)
+                   + ['on_peak','weekend_mid_peak','off_peak'].reduce((a,p)=>a+summerByPeriod[p].cost, 0);
+  const baseService = cfg.projectionDays * BASE_DAILY;
+  const totalCost = energyCost + baseService;
+  const totalKwh = avgDailyKwh * cfg.projectionDays;
+  
+  // Pump projection (apply same TOU split as observed window)
+  const pumpDailyKwh = PUMP_HIGH_KW * PUMP_DAILY_HIGH_HRS + PUMP_MED_KW * PUMP_DAILY_MED_HRS;
+  // Weighted current rate from observed pump events (winter rates)
+  let pumpCurrentRate = RATES.mid_peak;
+  if (pumpEventCount > 0) {
+    pumpCurrentRate = (pumpByPeriod.mid_peak * RATES.mid_peak +
+                       pumpByPeriod.off_peak * RATES.off_peak +
+                       pumpByPeriod.super_off_peak * RATES.super_off_peak) / pumpEventCount;
+  }
+  // Summer equivalent: mid_peak events → summer blended (5/7 on + 2/7 mid), others → off
+  let pumpSummerRate = SUMMER_RATES.on_peak;
+  if (pumpEventCount > 0) {
+    const midShare = pumpByPeriod.mid_peak / pumpEventCount;
+    const offShare = (pumpByPeriod.off_peak + pumpByPeriod.super_off_peak) / pumpEventCount;
+    pumpSummerRate = midShare * ((5/7)*SUMMER_RATES.on_peak + (2/7)*SUMMER_RATES.weekend_mid_peak)
+                   + offShare * SUMMER_RATES.off_peak;
+  }
+  const pumpWinterCost = pumpDailyKwh * winterDays * pumpCurrentRate;
+  const pumpSummerCost = pumpDailyKwh * summerDays * pumpSummerRate;
+  const pumpCurrentTotal = pumpWinterCost + pumpSummerCost;
+  const pumpOptimalWinter = pumpDailyKwh * winterDays * RATES.super_off_peak;
+  const pumpOptimalSummer = pumpDailyKwh * summerDays * SUMMER_RATES.off_peak;
+  const pumpOptimalTotal = pumpOptimalWinter + pumpOptimalSummer;
+  
+  return {
+    cfg, daysUsed, avgHourly, hourlyProjection, avgDailyKwh, totalKwh, totalCost, energyCost, baseService,
+    winterDays, summerDays, winterByPeriod, summerByPeriod, startDate, seasonDays,
+    pumpEventCount, pumpByPeriod, pumpDailyKwh, pumpCurrentTotal, pumpOptimalTotal,
+    pumpCurrentRate, pumpSummerRate
+  };
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+
+function projectionContextHtml(p) {
+  const endDate = new Date(p.startDate);
+  endDate.setDate(endDate.getDate() + p.cfg.projectionDays - 1);
+  const seasonNote = (p.winterDays > 0 && p.summerDays > 0)
+    ? `<strong>${p.winterDays}</strong> day${p.winterDays>1?'s':''} at winter rates + <strong>${p.summerDays}</strong> day${p.summerDays>1?'s':''} at summer rates`
+    : (p.summerDays > 0 ? '<strong>Summer rates</strong> apply (Jun 1 – Sep 30)' : '<strong>Winter rates</strong> apply (Oct 1 – May 31)');
+  const sampleWarning = p.daysUsed < p.cfg.windowDays
+    ? `<div class="sample-warning">⚠️ Only <strong>${p.daysUsed}</strong> day${p.daysUsed>1?'s':''} of data available; ideal window is ${p.cfg.windowDays} days. Projection quality will improve as more data accumulates.</div>` : '';
+  return `<div class="projection-banner">
+    📈 <strong>${p.cfg.title}: ${formatDate(p.startDate)} – ${formatDate(endDate)}</strong> · ${p.cfg.projectionDays} days projected from rolling ${p.daysUsed}-day window · ${seasonNote}.
+  </div>${sampleWarning}`;
+}
+
+// ============== TAB / DAY SWITCHING ==============
+document.getElementById('mainTabs').addEventListener('click', e => {
+  const t = e.target.closest('.tab');
+  if(!t) return;
+  document.querySelectorAll('#mainTabs .tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.view-panel').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+t.dataset.view).classList.add('active');
+});
+
+function setupDayTabs(containerId, callback) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  let sepAdded = false;
+  DAY_KEYS.forEach((dk,i) => {
+    if (PROJECTION_KEYS.includes(dk) && !sepAdded) {
+      const sep = document.createElement('div'); sep.className = 'day-tab-separator';
+      c.appendChild(sep); sepAdded = true;
+    }
+    const btn = document.createElement('div');
+    btn.className = 'day-tab' + (i===0?' active':'') + (PROJECTION_KEYS.includes(dk) ? ' projection' : '');
+    btn.textContent = DAY_LABELS[dk];
+    btn.dataset.day = dk;
+    btn.addEventListener('click', () => {
+      c.querySelectorAll('.day-tab').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      callback(dk);
+    });
+    c.appendChild(btn);
+  });
+  if(DAY_KEYS.length) callback(DAY_KEYS[0]);
+}
+
+// TOU background plugin
+const touBgPlugin = {
+  id: 'touBackground',
+  beforeDraw(chart) {
+    if(!chart.options.plugins.touBackground || !chart.options.plugins.touBackground.periods) return;
+    const ctx = chart.ctx, xAxis = chart.scales.x, yAxis = chart.scales.y;
+    const periods = chart.options.plugins.touBackground.periods;
+    const bgMap = chart.options.plugins.touBackground.bgMap || PERIOD_BG;
+    const n = periods.length;
+    for(let i=0;i<n;i++) {
+      const xCenter = xAxis.getPixelForValue(i);
+      const halfStep = i<n-1 ? (xAxis.getPixelForValue(i+1)-xCenter)/2 : (xCenter-xAxis.getPixelForValue(i-1))/2;
+      const x0 = Math.max(xCenter - halfStep, xAxis.left);
+      const x1 = Math.min(xCenter + halfStep, xAxis.right);
+      ctx.save(); ctx.fillStyle = bgMap[periods[i]] || 'transparent';
+      ctx.fillRect(x0, yAxis.top, x1-x0, yAxis.bottom - yAxis.top);
+      ctx.restore();
+    }
+  }
+};
+Chart.register(touBgPlugin);
+
+// ============== OVERVIEW (observed only) ==============
+function renderOverview() {
+  const el = document.getElementById('overview-summary');
+  let totalKwh=0, totalCost=0, peakKw=0, avgTemp=0, tempN=0;
+  OBSERVED_KEYS.forEach(dk => {
+    const s = SUMMARIES[dk];
+    totalKwh += s.total_kwh; totalCost += s.total_cost;
+    if(s.peak_kw > peakKw) peakKw = s.peak_kw;
+    if(s.avg_temp) { avgTemp += s.avg_temp; tempN++; }
+  });
+  el.innerHTML = `
+    <div class="card card-sm"><div class="label">Total usage</div><div class="value">${totalKwh.toFixed(1)} kWh</div><div class="sub">${OBSERVED_KEYS.length} days</div></div>
+    <div class="card card-sm"><div class="label">Total cost</div><div class="value" style="color:var(--green)">$${totalCost.toFixed(2)}</div><div class="sub">Incl. base service</div></div>
+    <div class="card card-sm"><div class="label">Peak demand</div><div class="value" style="color:var(--red)">${peakKw.toFixed(1)} kW</div><div class="sub">Max observed</div></div>
+    <div class="card card-sm"><div class="label">Avg indoor temp</div><div class="value">${tempN?Math.round(avgTemp/tempN):'-'}°F</div><div class="sub">HVAC off entire period</div></div>`;
+  destroyChart('overviewCostChart');
+  charts.overviewCostChart = new Chart(document.getElementById('overviewCostChart'), {
+    type:'bar',data:{labels:OBSERVED_KEYS.map(dk=>DAY_LABELS[dk]),datasets:[
+      {label:'kWh',data:OBSERVED_KEYS.map(dk=>Math.round(SUMMARIES[dk].total_kwh*10)/10),backgroundColor:'rgba(37,99,235,0.65)',yAxisID:'y'},
+      {label:'Cost ($)',data:OBSERVED_KEYS.map(dk=>Math.round(SUMMARIES[dk].total_cost*100)/100),backgroundColor:'rgba(22,163,74,0.65)',yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:TICK_COLOR,font:{size:11}}},datalabels:{display:false}},
+      scales:{x:{ticks:{color:TICK_COLOR},grid:{display:false}},y:{position:'left',title:{display:true,text:'kWh',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{color:GRID_COLOR}},y1:{position:'right',title:{display:true,text:'Cost ($)',color:TICK_COLOR},ticks:{color:TICK_COLOR,callback:v=>'$'+v},grid:{drawOnChartArea:false}}}}
+  });
+  destroyChart('overviewTouChart');
+  charts.overviewTouChart = new Chart(document.getElementById('overviewTouChart'), {
+    type:'bar',data:{labels:OBSERVED_KEYS.map(dk=>DAY_LABELS[dk]),datasets:['super_off_peak','off_peak','mid_peak'].map(p=>({
+      label:PERIOD_NAMES[p],data:OBSERVED_KEYS.map(dk=>Math.round(SUMMARIES[dk].by_period[p].kwh*10)/10),backgroundColor:PERIOD_COLORS[p]
+    }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:TICK_COLOR,font:{size:11}}},datalabels:{display:false}},
+      scales:{x:{stacked:true,ticks:{color:TICK_COLOR},grid:{display:false}},y:{stacked:true,title:{display:true,text:'kWh',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{color:GRID_COLOR}}}}
+  });
+}
+renderOverview();
+
+// ============== POWER ==============
+function renderPowerDay(dk) {
+  if (PROJECTION_KEYS.includes(dk)) return renderPowerProjection(dk);
+  const hours = DAYS[dk]; const s = SUMMARIES[dk];
+  document.getElementById('powerContent').innerHTML = `
+    <div class="grid grid-3" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Mean demand</div><div class="value">${(s.total_kwh/s.hours).toFixed(2)} kW</div></div>
+      <div class="card card-sm"><div class="label">Peak</div><div class="value" style="color:var(--red)">${s.peak_kw} kW</div></div>
+      <div class="card card-sm"><div class="label">Minimum</div><div class="value" style="color:var(--teal)">${s.min_kw} kW</div></div>
+    </div>
+    <div class="tou-legend">
+      <span><span class="dot" style="background:rgba(13,148,136,.45)"></span>Super off-peak 8am–4pm</span>
+      <span><span class="dot" style="background:rgba(37,99,235,.45)"></span>Off-peak 9pm–8am</span>
+      <span><span class="dot" style="background:rgba(220,38,38,.45)"></span>Mid-peak 4pm–9pm</span>
+    </div>
+    <div class="card"><div class="chart-wrap chart-wrap-tall"><canvas id="powerDayChart"></canvas></div></div>`;
+  destroyChart('powerDayChart');
+  charts.powerDayChart = new Chart(document.getElementById('powerDayChart'), {
+    type:'line',data:{labels:hours.map(h=>h.label),datasets:[
+      {label:'Max kW',data:hours.map(h=>h.max),borderColor:'transparent',backgroundColor:'rgba(37,99,235,0.06)',fill:'+1',pointRadius:0,order:3},
+      {label:'Min kW',data:hours.map(h=>h.min),borderColor:'transparent',fill:false,pointRadius:0,order:3},
+      {label:'Mean kW',data:hours.map(h=>h.mean),borderColor:'#1e40af',borderWidth:2.5,pointRadius:3,pointBackgroundColor:hours.map(h=>PERIOD_COLORS[h.period]),fill:false,tension:.3,order:1}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},datalabels:{display:false},touBackground:{periods:hours.map(h=>h.period)},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} kW`}}},
+      scales:{x:{ticks:{color:TICK_COLOR,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'kW',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{color:GRID_COLOR}}}
+    }
+  });
+}
+
+function renderPowerProjection(dk) {
+  const p = buildProjection(dk);
+  const peakKw = Math.max(...p.avgHourly.map(h=>h.max));
+  const minKw = Math.min(...p.avgHourly.map(h=>h.min));
+  // Use summer coloring if projection is mostly summer, else winter
+  const useSummerColoring = p.summerDays > p.winterDays;
+  const periods = p.avgHourly.map(h => useSummerColoring
+    ? ((h.hour>=16 && h.hour<21) ? 'on_peak' : 'off_peak')
+    : ((h.hour>=16 && h.hour<21) ? 'mid_peak' : (h.hour>=8 && h.hour<16) ? 'super_off_peak' : 'off_peak'));
+  const colorMap = useSummerColoring ? SUMMER_COLORS : PERIOD_COLORS;
+  const bgMap = useSummerColoring ? SUMMER_BG : PERIOD_BG;
+  
+  document.getElementById('powerContent').innerHTML = `
+    ${projectionContextHtml(p)}
+    <div class="grid grid-4" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Avg daily usage</div><div class="value">${p.avgDailyKwh.toFixed(1)} kWh</div><div class="sub">From ${p.daysUsed}-day window</div></div>
+      <div class="card card-sm"><div class="label">Projected total</div><div class="value" style="color:var(--purple)">${p.totalKwh.toFixed(0)} kWh</div><div class="sub">${p.cfg.projectionDays} days</div></div>
+      <div class="card card-sm"><div class="label">Peak demand</div><div class="value" style="color:var(--red)">${peakKw.toFixed(1)} kW</div><div class="sub">Max observed</div></div>
+      <div class="card card-sm"><div class="label">Min demand</div><div class="value" style="color:var(--teal)">${minKw.toFixed(2)} kW</div><div class="sub">Min observed</div></div>
+    </div>
+    <div class="tou-legend">
+      ${useSummerColoring
+        ? `<span><span class="dot" style="background:rgba(13,148,136,.45)"></span>Off-peak (summer)</span><span><span class="dot" style="background:rgba(220,38,38,.45)"></span>On-peak / weekend mid-peak (4-9pm)</span>`
+        : `<span><span class="dot" style="background:rgba(13,148,136,.45)"></span>Super off-peak 8am–4pm</span><span><span class="dot" style="background:rgba(37,99,235,.45)"></span>Off-peak 9pm–8am</span><span><span class="dot" style="background:rgba(220,38,38,.45)"></span>Mid-peak 4pm–9pm</span>`}
+    </div>
+    <div class="card"><div class="chart-wrap chart-wrap-tall"><canvas id="powerDayChart"></canvas></div></div>`;
+  destroyChart('powerDayChart');
+  charts.powerDayChart = new Chart(document.getElementById('powerDayChart'), {
+    type:'line',data:{labels:p.avgHourly.map(h=>h.label),datasets:[
+      {label:'Max kW',data:p.avgHourly.map(h=>h.max),borderColor:'transparent',backgroundColor:'rgba(124,58,237,0.06)',fill:'+1',pointRadius:0,order:3},
+      {label:'Min kW',data:p.avgHourly.map(h=>h.min),borderColor:'transparent',fill:false,pointRadius:0,order:3},
+      {label:'Mean kW',data:p.avgHourly.map(h=>h.mean),borderColor:'#7c3aed',borderWidth:2.5,pointRadius:3,pointBackgroundColor:periods.map(per=>colorMap[per]),fill:false,tension:.3,order:1}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},datalabels:{display:false},touBackground:{periods:periods, bgMap:bgMap},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} kW`}}},
+      scales:{x:{ticks:{color:TICK_COLOR,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'kW',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{color:GRID_COLOR}}}
+    }
+  });
+}
+setupDayTabs('powerDayTabs', renderPowerDay);
+
+// ============== COST ==============
+function renderCostDay(dk) {
+  if (PROJECTION_KEYS.includes(dk)) return renderCostProjection(dk);
+  const hours = DAYS[dk]; const s = SUMMARIES[dk]; const bp = s.by_period;
+  document.getElementById('costContent').innerHTML = `
+    <div class="grid grid-4" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Day total</div><div class="value" style="color:var(--green)">$${s.total_cost.toFixed(2)}</div><div class="sub">${s.total_kwh} kWh + base svc</div></div>
+      <div class="card card-sm"><div class="label">Mid-peak <span class="badge badge-mp">$0.411</span></div><div class="value">$${bp.mid_peak.cost.toFixed(2)}</div><div class="sub">${bp.mid_peak.kwh} kWh · ${bp.mid_peak.hours}h</div></div>
+      <div class="card card-sm"><div class="label">Off-peak <span class="badge badge-op">$0.275</span></div><div class="value">$${bp.off_peak.cost.toFixed(2)}</div><div class="sub">${bp.off_peak.kwh} kWh · ${bp.off_peak.hours}h</div></div>
+      <div class="card card-sm"><div class="label">Super off-peak <span class="badge badge-sop">$0.236</span></div><div class="value">$${bp.super_off_peak.cost.toFixed(2)}</div><div class="sub">${bp.super_off_peak.kwh} kWh · ${bp.super_off_peak.hours}h</div></div>
+    </div>
+    <div class="section-title">Hourly cost breakdown</div>
+    <div class="card"><div class="chart-wrap"><canvas id="costDayChart"></canvas></div></div>
+    <div class="section-title" style="margin-top:16px">Cost by TOU period</div>
+    <div class="card"><div class="chart-wrap" style="height:260px"><canvas id="costPieChart"></canvas></div></div>`;
+  destroyChart('costDayChart');
+  charts.costDayChart = new Chart(document.getElementById('costDayChart'), {
+    type:'bar',data:{labels:hours.map(h=>h.label),datasets:[{label:'Cost ($)',data:hours.map(h=>Math.round(h.cost_est*1000)/1000),backgroundColor:hours.map(h=>PERIOD_COLORS[h.period]),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},
+      tooltip:{callbacks:{label:ctx=>'$'+ctx.parsed.y.toFixed(3)+' ('+PERIOD_NAMES[hours[ctx.dataIndex].period]+')'}}},
+      scales:{x:{ticks:{color:TICK_COLOR,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'Cost ($)',color:TICK_COLOR},ticks:{color:TICK_COLOR,callback:v=>'$'+v.toFixed(2)},grid:{color:GRID_COLOR}}}}
+  });
+  destroyChart('costPieChart');
+  const pieData = ['mid_peak','off_peak','super_off_peak'].map(p=>bp[p].cost);
+  charts.costPieChart = new Chart(document.getElementById('costPieChart'), {
+    type:'doughnut',data:{labels:['Mid-peak','Off-peak','Super off-peak'],datasets:[{data:pieData,backgroundColor:['mid_peak','off_peak','super_off_peak'].map(p=>PERIOD_COLORS[p]),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{legend:{position:'bottom',labels:{color:TICK_COLOR,font:{size:12},padding:16}},
+        tooltip:{callbacks:{label:ctx=>' $'+ctx.parsed.toFixed(2)}},
+        datalabels:{color:'#fff',font:{weight:'bold',size:14},formatter:(v)=> v > 0.01 ? '$'+v.toFixed(2) : '',textShadowColor:'rgba(0,0,0,0.35)',textShadowBlur:4}
+      }}
+  });
+}
+
+function renderCostProjection(dk) {
+  const p = buildProjection(dk);
+  // Build pie data — combine winter + summer period buckets meaningfully
+  const pieLabels = [], pieValues = [], pieColors = [];
+  if (p.winterDays > 0) {
+    if (p.winterByPeriod.mid_peak.cost > 0.01) { pieLabels.push('Winter mid-peak'); pieValues.push(p.winterByPeriod.mid_peak.cost); pieColors.push(PERIOD_COLORS.mid_peak); }
+    if (p.winterByPeriod.off_peak.cost > 0.01) { pieLabels.push('Winter off-peak'); pieValues.push(p.winterByPeriod.off_peak.cost); pieColors.push(PERIOD_COLORS.off_peak); }
+    if (p.winterByPeriod.super_off_peak.cost > 0.01) { pieLabels.push('Winter super off-peak'); pieValues.push(p.winterByPeriod.super_off_peak.cost); pieColors.push(PERIOD_COLORS.super_off_peak); }
+  }
+  if (p.summerDays > 0) {
+    if (p.summerByPeriod.on_peak.cost > 0.01) { pieLabels.push('Summer on-peak'); pieValues.push(p.summerByPeriod.on_peak.cost); pieColors.push(SUMMER_COLORS.on_peak); }
+    if (p.summerByPeriod.weekend_mid_peak.cost > 0.01) { pieLabels.push('Summer weekend mid-peak'); pieValues.push(p.summerByPeriod.weekend_mid_peak.cost); pieColors.push(SUMMER_COLORS.weekend_mid_peak); }
+    if (p.summerByPeriod.off_peak.cost > 0.01) { pieLabels.push('Summer off-peak'); pieValues.push(p.summerByPeriod.off_peak.cost); pieColors.push(SUMMER_COLORS.off_peak); }
+  }
+  
+  // KPI cards: total + 3 most relevant period totals
+  let kpiCards = `<div class="card card-sm"><div class="label">Period total</div><div class="value" style="color:var(--purple)">$${p.totalCost.toFixed(2)}</div><div class="sub">${p.totalKwh.toFixed(0)} kWh + base svc</div></div>`;
+  if (p.winterDays > 0 && p.summerDays > 0) {
+    // Mixed - show winter total + summer total
+    const winterTotal = ['mid_peak','off_peak','super_off_peak'].reduce((a,k)=>a+p.winterByPeriod[k].cost, 0);
+    const summerTotal = ['on_peak','weekend_mid_peak','off_peak'].reduce((a,k)=>a+p.summerByPeriod[k].cost, 0);
+    kpiCards += `<div class="card card-sm"><div class="label">Winter portion</div><div class="value">$${winterTotal.toFixed(2)}</div><div class="sub">${p.winterDays} days @ winter rates</div></div>`;
+    kpiCards += `<div class="card card-sm"><div class="label">Summer portion</div><div class="value">$${summerTotal.toFixed(2)}</div><div class="sub">${p.summerDays} days @ summer rates</div></div>`;
+    kpiCards += `<div class="card card-sm"><div class="label">Base service</div><div class="value">$${p.baseService.toFixed(2)}</div><div class="sub">${p.cfg.projectionDays} × $${BASE_DAILY.toFixed(3)}/day</div></div>`;
+  } else if (p.winterDays > 0) {
+    kpiCards += `<div class="card card-sm"><div class="label">Mid-peak <span class="badge badge-mp">$0.411</span></div><div class="value">$${p.winterByPeriod.mid_peak.cost.toFixed(2)}</div><div class="sub">${p.winterByPeriod.mid_peak.kwh.toFixed(0)} kWh</div></div>`;
+    kpiCards += `<div class="card card-sm"><div class="label">Off-peak <span class="badge badge-op">$0.275</span></div><div class="value">$${p.winterByPeriod.off_peak.cost.toFixed(2)}</div><div class="sub">${p.winterByPeriod.off_peak.kwh.toFixed(0)} kWh</div></div>`;
+    kpiCards += `<div class="card card-sm"><div class="label">Super off-peak <span class="badge badge-sop">$0.236</span></div><div class="value">$${p.winterByPeriod.super_off_peak.cost.toFixed(2)}</div><div class="sub">${p.winterByPeriod.super_off_peak.kwh.toFixed(0)} kWh</div></div>`;
+  } else {
+    kpiCards += `<div class="card card-sm"><div class="label">On-peak <span class="badge badge-onpeak">$0.486</span></div><div class="value">$${p.summerByPeriod.on_peak.cost.toFixed(2)}</div><div class="sub">${p.summerByPeriod.on_peak.kwh.toFixed(0)} kWh · M-F 4-9pm</div></div>`;
+    kpiCards += `<div class="card card-sm"><div class="label">Weekend mid-peak <span class="badge badge-midpeak">$0.366</span></div><div class="value">$${p.summerByPeriod.weekend_mid_peak.cost.toFixed(2)}</div><div class="sub">${p.summerByPeriod.weekend_mid_peak.kwh.toFixed(0)} kWh · Sa-Su 4-9pm</div></div>`;
+    kpiCards += `<div class="card card-sm"><div class="label">Off-peak <span class="badge badge-offpeak">$0.246</span></div><div class="value">$${p.summerByPeriod.off_peak.cost.toFixed(2)}</div><div class="sub">${p.summerByPeriod.off_peak.kwh.toFixed(0)} kWh · all other</div></div>`;
+  }
+  
+  document.getElementById('costContent').innerHTML = `
+    ${projectionContextHtml(p)}
+    <div class="grid grid-4" style="margin-bottom:14px">${kpiCards}</div>
+    <div class="section-title">Projected cost by hour-of-day</div>
+    <div class="card"><div class="chart-wrap"><canvas id="costDayChart"></canvas></div></div>
+    <div class="section-title" style="margin-top:16px">Cost by TOU period</div>
+    <div class="card"><div class="chart-wrap" style="height:260px"><canvas id="costPieChart"></canvas></div></div>`;
+  destroyChart('costDayChart');
+  const useSummerColoring = p.summerDays > p.winterDays;
+  const barColors = p.hourlyProjection.map(h => useSummerColoring ? SUMMER_COLORS[h.summerPeriod] : PERIOD_COLORS[h.winterPeriod]);
+  charts.costDayChart = new Chart(document.getElementById('costDayChart'), {
+    type:'bar',data:{labels:p.hourlyProjection.map(h=>h.label),datasets:[{
+      label:'Projected cost ($)',
+      data:p.hourlyProjection.map(h=>Math.round(h.cost*100)/100),
+      backgroundColor:barColors, borderRadius:3
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},
+      tooltip:{callbacks:{label:ctx=>'$'+ctx.parsed.y.toFixed(2)+' total contribution over '+p.cfg.projectionDays+' days'}}},
+      scales:{x:{ticks:{color:TICK_COLOR,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'Cost ($)',color:TICK_COLOR},ticks:{color:TICK_COLOR,callback:v=>'$'+v.toFixed(0)},grid:{color:GRID_COLOR}}}}
+  });
+  destroyChart('costPieChart');
+  charts.costPieChart = new Chart(document.getElementById('costPieChart'), {
+    type:'doughnut',data:{labels:pieLabels,datasets:[{data:pieValues,backgroundColor:pieColors,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{legend:{position:'bottom',labels:{color:TICK_COLOR,font:{size:11},padding:12}},
+        tooltip:{callbacks:{label:ctx=>' $'+ctx.parsed.toFixed(2)}},
+        datalabels:{color:'#fff',font:{weight:'bold',size:13},formatter:(v)=> v > 1 ? '$'+v.toFixed(0) : '',textShadowColor:'rgba(0,0,0,0.35)',textShadowBlur:4}
+      }}
+  });
+}
+setupDayTabs('costDayTabs', renderCostDay);
+
+// ============== TEMPERATURE ==============
+function renderTempDay(dk) {
+  if (PROJECTION_KEYS.includes(dk)) return renderTempProjection(dk);
+  const hours = DAYS[dk];
+  const temps = hours.map(h=>h.temp).filter(Boolean);
+  const powers = hours.map(h=>h.mean);
+  const avg = temps.length ? Math.round(temps.reduce((a,b)=>a+b,0)/temps.length) : '-';
+  const mx = temps.length ? Math.max(...temps) : '-';
+  const mn = temps.length ? Math.min(...temps) : '-';
+  const pMax = Math.max(...powers);
+  document.getElementById('tempContent').innerHTML = `
+    <div class="grid grid-3" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Avg temp</div><div class="value">${avg}°F</div></div>
+      <div class="card card-sm"><div class="label">High</div><div class="value" style="color:var(--coral)">${mx}°F</div></div>
+      <div class="card card-sm"><div class="label">Low</div><div class="value" style="color:var(--accent)">${mn}°F</div></div>
+    </div>
+    <div class="section-title">Temperature vs power demand</div>
+    <div class="card"><div class="chart-wrap chart-wrap-tall"><canvas id="tempDayChart"></canvas></div></div>`;
+  destroyChart('tempDayChart');
+  const tempPad = Math.max(3, Math.round((mx-mn)*0.25));
+  const powerPad = Math.max(0.5, pMax*0.15);
+  charts.tempDayChart = new Chart(document.getElementById('tempDayChart'), {
+    type:'line',data:{labels:hours.map(h=>h.label),datasets:[
+      {label:'Power (kW)',data:powers,borderColor:'#2563eb',borderWidth:2,pointRadius:0,fill:false,tension:.3,yAxisID:'y'},
+      {label:'Temp (°F)',data:hours.map(h=>h.temp),borderColor:'#ea580c',borderWidth:2,pointRadius:0,borderDash:[5,3],fill:false,tension:.3,yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:TICK_COLOR,font:{size:11}}},datalabels:{display:false}},
+      scales:{
+        x:{ticks:{color:TICK_COLOR,maxRotation:0},grid:{display:false}},
+        y:{position:'left',min:0,max:Math.ceil(pMax+powerPad),title:{display:true,text:'kW',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{color:GRID_COLOR}},
+        y1:{position:'right',min:Math.floor(mn-tempPad),max:Math.ceil(mx+tempPad),title:{display:true,text:'°F',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{drawOnChartArea:false}}
+      }}
+  });
+}
+
+function renderTempProjection(dk) {
+  const p = buildProjection(dk);
+  const tempsWithData = p.avgHourly.filter(h => h.temp != null);
+  const avgT = tempsWithData.length ? tempsWithData.reduce((a,h)=>a+h.temp,0)/tempsWithData.length : null;
+  const mxT = tempsWithData.length ? Math.max(...tempsWithData.map(h=>h.temp)) : null;
+  const mnT = tempsWithData.length ? Math.min(...tempsWithData.map(h=>h.temp)) : null;
+  const powers = p.avgHourly.map(h=>h.mean);
+  const pMax = Math.max(...powers);
+  document.getElementById('tempContent').innerHTML = `
+    ${projectionContextHtml(p)}
+    <div class="grid grid-3" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Avg indoor temp</div><div class="value">${avgT!=null?Math.round(avgT)+'°F':'-'}</div><div class="sub">From window avg</div></div>
+      <div class="card card-sm"><div class="label">Daily high</div><div class="value" style="color:var(--coral)">${mxT!=null?Math.round(mxT)+'°F':'-'}</div><div class="sub">Avg peak in window</div></div>
+      <div class="card card-sm"><div class="label">Daily low</div><div class="value" style="color:var(--accent)">${mnT!=null?Math.round(mnT)+'°F':'-'}</div><div class="sub">Avg low in window</div></div>
+    </div>
+    <div class="section-title">Average daily pattern (power vs temp from window)</div>
+    <div class="card"><div class="chart-wrap chart-wrap-tall"><canvas id="tempDayChart"></canvas></div></div>`;
+  destroyChart('tempDayChart');
+  if (tempsWithData.length === 0) return;
+  const tempPad = Math.max(3, Math.round((mxT-mnT)*0.25));
+  const powerPad = Math.max(0.5, pMax*0.15);
+  charts.tempDayChart = new Chart(document.getElementById('tempDayChart'), {
+    type:'line',data:{labels:p.avgHourly.map(h=>h.label),datasets:[
+      {label:'Power (kW)',data:powers,borderColor:'#7c3aed',borderWidth:2,pointRadius:0,fill:false,tension:.3,yAxisID:'y'},
+      {label:'Temp (°F)',data:p.avgHourly.map(h=>h.temp),borderColor:'#ea580c',borderWidth:2,pointRadius:0,borderDash:[5,3],fill:false,tension:.3,yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:TICK_COLOR,font:{size:11}}},datalabels:{display:false}},
+      scales:{
+        x:{ticks:{color:TICK_COLOR,maxRotation:0},grid:{display:false}},
+        y:{position:'left',min:0,max:Math.ceil(pMax+powerPad),title:{display:true,text:'kW',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{color:GRID_COLOR}},
+        y1:{position:'right',min:Math.floor(mnT-tempPad),max:Math.ceil(mxT+tempPad),title:{display:true,text:'°F',color:TICK_COLOR},ticks:{color:TICK_COLOR},grid:{drawOnChartArea:false}}
+      }}
+  });
+}
+setupDayTabs('tempDayTabs', renderTempDay);
+
+// ============== POOL PUMP ==============
+function renderPumpDay(dk) {
+  if (PROJECTION_KEYS.includes(dk)) return renderPumpProjection(dk);
+  const hours = DAYS[dk];
+  const detectedEvents = hours.filter(h => h.pump_high);
+  const eventsByPeriod = {mid_peak:0, super_off_peak:0, off_peak:0};
+  detectedEvents.forEach(e => eventsByPeriod[e.period]++);
+  const assumedDailyKwh = (PUMP_HIGH_KW * PUMP_DAILY_HIGH_HRS) + (PUMP_MED_KW * PUMP_DAILY_MED_HRS);
+  const totalEvents = detectedEvents.length;
+  let weightedRate;
+  if (totalEvents > 0) weightedRate = detectedEvents.reduce((sum, e) => sum + e.rate, 0) / totalEvents;
+  else weightedRate = RATES.mid_peak;
+  const currentDailyCost = assumedDailyKwh * weightedRate;
+  const optimalDailyCost = assumedDailyKwh * RATES.super_off_peak;
+  const dailySavings = currentDailyCost - optimalDailyCost;
+  const monthlyCurrent = currentDailyCost * 30;
+  const monthlyOptimal = optimalDailyCost * 30;
+  const monthlySavings = dailySavings * 30;
+  const annualSavings = monthlySavings * 12;
+  let eventsHtml = '';
+  if (detectedEvents.length === 0) {
+    eventsHtml = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:14px">No high-power events detected (max ≤ 4.5 kW)</td></tr>';
+  } else {
+    detectedEvents.forEach(e => {
+      const badge = e.period === 'mid_peak' ? 'badge-mp' : e.period === 'off_peak' ? 'badge-op' : 'badge-sop';
+      eventsHtml += `<tr><td>${e.label}</td><td><span class="badge ${badge}">${PERIOD_NAMES[e.period]}</span></td><td>${e.max.toFixed(1)} kW</td><td>${e.mean.toFixed(2)} kW</td><td>$${e.rate.toFixed(3)}/kWh</td></tr>`;
+    });
+  }
+  document.getElementById('pumpContent').innerHTML = `
+    <div class="pump-banner">🏊 <strong>Pentair WhisperFlo VST</strong> — Detection: hours where max ≥ 4.5 kW AND mean ≥ 2.5 kW (likely high-speed cycles). Medium-speed filtration blends with baseload.</div>
+    <div class="grid grid-4" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">High-speed events</div><div class="value">${detectedEvents.length}</div><div class="sub">Detected this day</div></div>
+      <div class="card card-sm"><div class="label">During mid-peak</div><div class="value" style="color:var(--red)">${eventsByPeriod.mid_peak}</div><div class="sub">4pm–9pm</div></div>
+      <div class="card card-sm"><div class="label">During off-peak</div><div class="value" style="color:var(--accent)">${eventsByPeriod.off_peak}</div><div class="sub">9pm–8am</div></div>
+      <div class="card card-sm"><div class="label">During super off-peak</div><div class="value" style="color:var(--teal)">${eventsByPeriod.super_off_peak}</div><div class="sub">8am–4pm</div></div>
+    </div>
+    <div class="section-title">Detected high-power events</div>
+    <div class="card" style="overflow-x:auto"><table class="pump-table"><thead><tr><th>Hour</th><th>TOU period</th><th>Peak</th><th>Mean</th><th>Rate</th></tr></thead><tbody>${eventsHtml}</tbody></table></div>
+    <div class="section-title" style="margin-top:18px">Daily cost estimate (typical schedule)</div>
+    <div class="assumption-box"><strong>Assumption:</strong> ${PUMP_DAILY_HIGH_HRS} hr high (${PUMP_HIGH_KW} kW) + ${PUMP_DAILY_MED_HRS} hrs medium (${PUMP_MED_KW} kW) = <strong>${assumedDailyKwh.toFixed(2)} kWh/day</strong></div>
+    <div class="grid grid-3" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Pump kWh/day</div><div class="value">${assumedDailyKwh.toFixed(2)}</div></div>
+      <div class="card card-sm"><div class="label">Current schedule</div><div class="value" style="color:var(--red)">$${currentDailyCost.toFixed(2)}</div><div class="sub">$${weightedRate.toFixed(3)}/kWh weighted</div></div>
+      <div class="card card-sm"><div class="label">Super off-peak</div><div class="value" style="color:var(--green)">$${optimalDailyCost.toFixed(2)}</div><div class="sub">All hours at $0.236</div></div>
+    </div>
+    <div class="savings-card"><div class="savings-title">💡 Savings opportunity</div><div class="savings-body">
+      Shift pump cycles to <strong>super off-peak (8am–4pm)</strong> → save ~<strong>$${monthlySavings.toFixed(2)}/month</strong> (≈ <strong>$${annualSavings.toFixed(0)}/year</strong>).
+    </div></div>`;
+}
+
+function renderPumpProjection(dk) {
+  const p = buildProjection(dk);
+  const pumpMonthlyKwh = p.pumpDailyKwh * p.cfg.projectionDays;
+  const savings = p.pumpCurrentTotal - p.pumpOptimalTotal;
+  
+  document.getElementById('pumpContent').innerHTML = `
+    ${projectionContextHtml(p)}
+    <div class="pump-banner">🏊 <strong>Pentair WhisperFlo VST</strong> — Assumed ${PUMP_DAILY_HIGH_HRS}hr high + ${PUMP_DAILY_MED_HRS}hr medium = ${p.pumpDailyKwh.toFixed(2)} kWh/day. Current schedule timing inferred from detected high-speed events in rolling window.</div>
+    <div class="grid grid-4" style="margin-bottom:14px">
+      <div class="card card-sm"><div class="label">Pump kWh total</div><div class="value">${pumpMonthlyKwh.toFixed(0)}</div><div class="sub">${p.pumpDailyKwh.toFixed(2)} × ${p.cfg.projectionDays} days</div></div>
+      <div class="card card-sm"><div class="label">At current schedule</div><div class="value" style="color:var(--red)">$${p.pumpCurrentTotal.toFixed(2)}</div><div class="sub">${p.pumpEventCount} events detected in window</div></div>
+      <div class="card card-sm"><div class="label">At cheapest hours</div><div class="value" style="color:var(--green)">$${p.pumpOptimalTotal.toFixed(2)}</div><div class="sub">Winter: super off-peak / Summer: off-peak</div></div>
+      <div class="card card-sm"><div class="label">Potential savings</div><div class="value" style="color:var(--teal)">$${savings.toFixed(2)}</div><div class="sub">${p.pumpCurrentTotal>0?(savings/p.pumpCurrentTotal*100).toFixed(0):0}% reduction</div></div>
+    </div>
+    <div class="section-title">Detected pump events distribution (from ${p.daysUsed}-day window)</div>
+    <div class="card" style="margin-bottom:14px">
+      <table class="pump-table">
+        <thead><tr><th>Period in window</th><th>Events detected</th><th>Share</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-mp">Mid-peak (4–9pm)</span></td><td>${p.pumpByPeriod.mid_peak}</td><td>${p.pumpEventCount>0?(p.pumpByPeriod.mid_peak/p.pumpEventCount*100).toFixed(0):0}%</td></tr>
+          <tr><td><span class="badge badge-sop">Super off-peak (8am–4pm)</span></td><td>${p.pumpByPeriod.super_off_peak}</td><td>${p.pumpEventCount>0?(p.pumpByPeriod.super_off_peak/p.pumpEventCount*100).toFixed(0):0}%</td></tr>
+          <tr><td><span class="badge badge-op">Off-peak (9pm–8am)</span></td><td>${p.pumpByPeriod.off_peak}</td><td>${p.pumpEventCount>0?(p.pumpByPeriod.off_peak/p.pumpEventCount*100).toFixed(0):0}%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="savings-card"><div class="savings-title">💡 Pump optimization for ${p.cfg.title.toLowerCase()}</div><div class="savings-body">
+      Shifting pump to cheapest available rate saves ~<strong>$${savings.toFixed(2)}</strong> over ${p.cfg.projectionDays} days.
+      ${p.summerDays>0 && p.winterDays>0 ? `<br><br><strong>Note:</strong> This projection crosses the winter/summer boundary on Jun 1. Winter has super off-peak ($0.236/kWh, 8am–4pm), summer collapses to just off-peak ($0.246/kWh, all non-4–9pm hours).` : ''}
+    </div></div>`;
+}
+setupDayTabs('pumpDayTabs', renderPumpDay);
+</script>
+</body>
+</html>
